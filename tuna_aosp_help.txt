@@ -1,0 +1,437 @@
+Aosp | 镜像站使用帮助 | 清华大学开源软件镜像站 | Tsinghua Open Source Mirror
+清华大学
+开源软件镜像站
+HOME
+EVENTS
+BLOG
+RSS
+PODCAST
+MIRRORS
+AOSP
+Adoptium
+CPAN
+CRAN
+CTAN
+CocoaPods
+NetBSD
+OpenBSD
+OpenMediaVault
+alpine
+anaconda
+anthon
+aosp-monthly
+arch4edu
+archlinux
+archlinuxarm
+archlinuxcn
+armbian
+bazel-apt
+binutils-gdb.git
+bioconductor
+blackarch
+centos
+centos-stream
+centos-vault
+ceph
+chef
+clojars
+crates.io-index
+crates.io-index.git
+cygwin
+dart-pub
+deb-multimedia
+debian
+debian-elts
+debian-security
+docker-ce
+eclipse
+elasticstack
+elpa
+elrepo
+entware
+epel
+erlang-solutions
+fdroid
+fedora
+flutter
+flutter-sdk.git
+gcc.git
+gentoo
+gentoo-portage
+gentoo-portage-prefix
+gentoo-portage.git
+git-repo
+github-raw
+github-release
+gitlab-ce
+gitlab-runner
+glibc.git
+grafana
+hackage
+homebrew
+homebrew-bottles
+influxdata
+julia-releases
+kali
+kicad
+kodi
+kubernetes
+lineage-rom
+lineageOS
+linux-firmware.git
+linux-next.git
+linux-stable.git
+linux.git
+linuxmint
+llvm-apt
+llvm-project.git
+lxc-images
+manjaro
+mariadb
+mongodb
+mozilla
+msys2
+mysql
+nix
+nix-channels
+nixpkgs.git
+nodejs-release
+ohmyzsh.git
+opensuse
+openwrt
+pkgsrc
+pkgsrc.git
+postmarketOS
+proxmox
+pybombs
+pypi
+python
+qemu.git
+qt
+qubesos
+raspberrypi
+raspbian
+repo-ck
+ros
+ros2
+rosdistro
+rpmfusion
+rubygems
+rudder
+rustup
+solus
+stackage
+termux
+tlpretest
+ubuntu
+ubuntu-cloud-images
+ubuntu-ports
+virtualbox
+voidlinux
+wine-builds
+xanmod
+选择帮助条目:
+AOSP
+Adoptium
+CPAN
+CRAN
+CTAN
+CocoaPods
+NetBSD
+OpenBSD
+OpenMediaVault
+alpine
+anaconda
+anthon
+aosp-monthly
+arch4edu
+archlinux
+archlinuxarm
+archlinuxcn
+armbian
+bazel-apt
+binutils-gdb.git
+bioconductor
+blackarch
+centos
+centos-stream
+centos-vault
+ceph
+chef
+clojars
+crates.io-index
+crates.io-index.git
+cygwin
+dart-pub
+deb-multimedia
+debian
+debian-elts
+debian-security
+docker-ce
+eclipse
+elasticstack
+elpa
+elrepo
+entware
+epel
+erlang-solutions
+fdroid
+fedora
+flutter
+flutter-sdk.git
+gcc.git
+gentoo
+gentoo-portage
+gentoo-portage-prefix
+gentoo-portage.git
+git-repo
+github-raw
+github-release
+gitlab-ce
+gitlab-runner
+glibc.git
+grafana
+hackage
+homebrew
+homebrew-bottles
+influxdata
+julia-releases
+kali
+kicad
+kodi
+kubernetes
+lineage-rom
+lineageOS
+linux-firmware.git
+linux-next.git
+linux-stable.git
+linux.git
+linuxmint
+llvm-apt
+llvm-project.git
+lxc-images
+manjaro
+mariadb
+mongodb
+mozilla
+msys2
+mysql
+nix
+nix-channels
+nixpkgs.git
+nodejs-release
+ohmyzsh.git
+opensuse
+openwrt
+pkgsrc
+pkgsrc.git
+postmarketOS
+proxmox
+pybombs
+pypi
+python
+qemu.git
+qt
+qubesos
+raspberrypi
+raspbian
+repo-ck
+ros
+ros2
+rosdistro
+rpmfusion
+rubygems
+rudder
+rustup
+solus
+stackage
+termux
+tlpretest
+ubuntu
+ubuntu-cloud-images
+ubuntu-ports
+virtualbox
+voidlinux
+wine-builds
+xanmod
+debug-restore
+AOSP
+是否使用 HTTPS
+是否使用 sudo
+自动
+IPv4
+IPv6
+线路选择
+注意：本镜像是 AOSP 镜像，Android SDK 因版权原因，不能提供镜像服务。
+可访问
+https://cs.android.com
+在线搜索及浏览 AOSP 源码。
+参考 Google 教程
+https://source.android.com/setup/build/downloading
+， 将
+https://android.googlesource.com/
+全部使用如下链接代替即可。
+https:
+//mi
+rrors.tuna.tsinghua.edu.cn
+/git/
+AOSP/
+由于 AOSP 镜像造成 CPU/内存负载过重，我们限制了并发数量，因此建议：
+sync 的时候并发数不宜太高，否则会出现 503 错误，即
+-j
+后面的数字不能太大，建议选择 4。
+请尽量选择流量较小时错峰同步。
+过程摘录
+下载 repo 工具
+mkdir
+~/bin
+PATH=~/bin:
+$PATH
+curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
+chmod
+a+x ~/bin/repo
+mkdir ~/bin
+PATH=~/bin:$PATH
+curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
+chmod a+x ~/bin/repo
+或者使用
+git-repo 镜像
+使用每月更新的初始化包
+参考
+AOSP Monthly 镜像
+，此目录仅在部分镜像站存在。
+传统初始化方法
+建立工作目录：
+mkdir
+WORKING_DIRECTORY
+cd
+WORKING_DIRECTORY
+mkdir WORKING_DIRECTORY
+cd WORKING_DIRECTORY
+初始化仓库：
+repo init -u https://mirrors.tuna.tsinghua.edu.cn/git/AOSP/platform/manifest
+如果提示无法连接到 gerrit.googlesource.com，请参照
+git-repo 的帮助页面
+的更新一节。
+如果需要某个特定的 Android 版本 (见「说明」中「Android 版本列表」部分)：
+repo init -u https://mirrors.tuna.tsinghua.edu.cn/git/AOSP/platform/manifest -b android-4.0.1_r1
+同步源码树（以后只需执行这条命令来同步）：
+repo
+sync
+repo sync
+建立次级镜像
+由于 AOSP 镜像需求量巨大，且 Git 服务占资源较多，部分镜像站服务器因 AOSP 产生的负载已经占主要部分。 如果你是团队用户，我们强烈建议你建立次级镜像，再分享给团队内其他用户，减轻服务器压力。 建立 AOSP 镜像需要占用约 850G 磁盘。
+具体步骤为：
+下载
+repo
+工具和建立工作目录（略）
+初始化：
+repo init -u https://mirrors.tuna.tsinghua.edu.cn/git/AOSP/mirror/manifest --mirror
+最后同步源码树：
+repo
+sync
+repo sync
+同步完成后，运行：
+git daemon --verbose --export-all --base-path=WORKING_DIR WORKING_DIR`
+git daemon --verbose --export-all --base-path=WORKING_DIR WORKING_DIR`
+其中
+WORKING_DIR
+为代码树所在目录。
+此后，其他用户使用
+git://ip.to.mirror/
+作为镜像即可。
+替换已有的 AOSP 源代码的 remote
+如果你之前已经通过某种途径获得了 AOSP 的源码 (或者你只是 init 这一步完成后)， 你希望以后通过 TUNA 同步 AOSP 部分的代码，只需要修改
+.repo/manifests.git/config
+，将
+url = https:
+//
+android.googlesource.com
+/platform/m
+anifest
+url = https://android.googlesource.com/platform/manifest
+更改为
+url = https:
+//mi
+rrors.tuna.tsinghua.edu.cn
+/git/
+AOSP
+/platform/m
+anifest
+或者可以不修改文件，而执行
+git config --global url.https:
+//mi
+rrors.tuna.tsinghua.edu.cn
+/git/
+AOSP
+/.insteadof https:/
+/android.googlesource.com
+常见问题
+本仓库镜像的是 AOSP 的 git 仓库，不是系统镜像或者开发工具下载。
+Android 版本列表：
+https://source.android.com/source/build-numbers.html#source-code-tags-and-builds
+或
+https://source.android.google.cn/source/build-numbers#source-code-tags-and-builds
+。
+出现
+curl: (22) The requested URL returned error: 404 Not Found Server does not provide clone.bundle; ignoring.
+怎么办？
+无视即可，参见
+https://github.com/tuna/issues/issues/936
+。
+为何不能通过浏览器访问？
+镜像站没有 gitweb, 并且提供的是 git bare 仓库，没有可以直接看到的内容。
+建议访问
+https://cs.android.com
+在线搜索及浏览 AOSP 源码。
+LineageOS 中对于 AOSP 的替换
+打开
+.repo/manifests/default.xml
+，将
+<
+remote
+name
+=
+"aosp"
+fetch
+=
+"https://android.googlesource.com"
+<remote  name="aosp"
+fetch="https://android.googlesource.com"
+改成
+<
+remote
+name
+=
+"aosp"
+fetch
+=
+"https://mirrors.tuna.tsinghua.edu.cn/git/AOSP"
+本站由清华大学信息化技术中心支持创办，由清华大学 TUNA 协会运行维护。
+清华大学 TUNA 协会，全名清华大学学生网络与开源软件协会，是由清华大学热爱网络技术和开源软件的极客组成的学生技术社团。
+本站相关源码可在
+这里(镜像管理器)
+和
+这里(镜像站网页)
+获取。
+根据相关法律法规，本站不对欧盟用户提供服务。
+Contact Us
+Mailing List
+#tuna at Libera.Chat
+GitHub
+新浪微博
+Sponsor
+本存储服务器由
+华为技术有限公司
+（Huawei Technologies Co., Ltd.）赞助，并由海思
+®
+Kunpeng
+®
+920 处理器强力驱动。TUNA 感谢华为和旷视对开源软件和社区的贡献。
+clipboard
+clipboard-check
+bars
+envelope
+hashtag
+github
+weibo

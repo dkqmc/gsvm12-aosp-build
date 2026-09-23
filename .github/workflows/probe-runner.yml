@@ -1,0 +1,155 @@
+name: probe-runner
+
+# 目的：在动手编 AOSP 12 之前，先量化 GitHub-hosted runner 的真实资源上限，
+# 以及从 runner 侧访问清华 AOSP 镜像的实际带宽。结论决定后续用哪条编译路线。
+# 本 workflow 不编译 AOSP，只做测量，单次运行约 15-30 分钟。
+
+"on":
+  workflow_dispatch:
+    inputs:
+      sync_sample:
+        description: "是否做 repo sync 带宽采样（额外几分钟到十几分钟）"
+        type: boolean
+        default: true
+      reclaim_disk:
+        description: "是否删除 runner 预装的大型工具链以腾出根分区"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      MIRROR: https://mirrors.tuna.tsinghua.edu.cn/git/AOSP
+      MANIFEST_BRANCH: android-12.0.0_r34
+      REPORT: runner-probe-report.txt
+
+    steps:
+      - name: 采集 runner 硬件与系统信息
+        run: |
+          {
+            echo "===== 时间 / 主机 ====="
+            date -u +'%F %T UTC'; uname -a; cat /etc/os-release | head -3
+            echo; echo "===== CPU ====="
+            nproc; lscpu | grep -E "Model name|^CPU\(s\)|MHz|Architecture"
+            echo; echo "===== 内存 ====="
+            free -h
+            echo; echo "===== cgroup 资源限制 ====="
+            for f in cpu.max memory.max memory.high cpuset.cpus; do
+              printf '%s = %s\n' "$f" "$(cat /sys/fs/cgroup/$f 2>/dev/null || echo n/a)"
+            done
+            echo; echo "===== 磁盘布局（清理前）====="
+            lsblk -o NAME,SIZE,TYPE,MOUNTPOINTS 2>/dev/null
+            df -hT / /home /mnt /tmp 2>/dev/null
+            echo; echo "===== 预装大型目录占用 ====="
+            du -sh /usr/share/dotnet /usr/local/lib/android /usr/lib/android-sdk \
+                   /opt/hostedtoolcache /usr/share/miniconda /usr/local/share/powershell \
+                   2>/dev/null || true
+          } | tee "$REPORT"
+
+      - name: 腾出根分区空间
+        if: inputs.reclaim_disk
+        run: |
+          {
+            echo; echo "===== 清理动作 ====="
+            sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/hostedtoolcache \
+                        /usr/share/miniconda /usr/local/share/powershell 2>/dev/null || true
+            sudo apt-get remove -y '^aspnetcore-.*' '^dotnet-.*' '^llvm-.*' 'php.*' \
+                        azure-cli google-chrome-stable firefox powershell >/dev/null 2>&1 || true
+            sudo apt-get autoremove -y >/dev/null 2>&1 || true
+            sudo sync
+            echo "清理后："
+            df -hT / /mnt 2>/dev/null
+            echo "可用字节(root)=$(df --output=avail -B1 / | tail -1 | tr -d ' ')"
+          } | tee -a "$REPORT"
+
+      - name: 探测清华镜像连通性与带宽
+        run: |
+          {
+            echo; echo "===== git 通道：ls-remote 耗时 ====="
+            time git ls-remote --tags "$MIRROR/platform/manifest" >/tmp/tags.txt 2>&1
+            echo "android-12.0.0 tag 最大值: $(grep -oE 'android-12\.0\.0_r[0-9]+' /tmp/tags.txt | sort -u -V | tail -1)"
+            echo "android-12.0.0 tag 数量: $(grep -oE 'android-12\.0\.0_r[0-9]+' /tmp/tags.txt | sort -u | wc -l)"
+            echo; echo "===== aosp-monthly 初始化包 GET 是否被拦 ====="
+            curl -s -o /dev/null -w "HEAD code=%{http_code} len=%{size_download}\n" \
+                 -I "https://mirrors.tuna.tsinghua.edu.cn/aosp-monthly/aosp-latest.tar"
+            curl -s -o /dev/null -r 0-20000000 \
+                 -w "RANGE GET code=%{http_code} bytes=%{size_download} Bps=%{speed_download}\n" \
+                 "https://mirrors.tuna.tsinghua.edu.cn/aosp-monthly/aosp-latest.tar"
+            echo; echo "===== 单项目浅克隆带宽采样（platform/build）====="
+            rm -rf /tmp/pb
+            /usr/bin/time -v git clone --depth=1 --single-branch \
+              -b "$MANIFEST_BRANCH" "$MIRROR/platform/build" /tmp/pb 2>&1 \
+              | grep -E "Elapsed|Maximum resident|Network" || true
+            echo "clone 后大小: $(du -sh /tmp/pb 2>/dev/null | cut -f1)"
+          } | tee -a "$REPORT" || true
+
+      - name: 初始化 manifest 并统计源码规模
+        if: always()
+        run: |
+          {
+            echo; echo "===== repo 工具 ====="
+            mkdir -p ~/bin
+            curl -fsSL https://storage.googleapis.com/git-repo-downloads/repo -o ~/bin/repo \
+              && chmod a+x ~/bin/repo && echo "repo 下载自 storage.googleapis.com: OK" \
+              || echo "repo 下载失败（改用清华 git-repo 镜像重试）"
+            export PATH=~/bin:$PATH
+            repo --version 2>&1 | head -5 || true
+            git config --global user.email probe@example.com
+            git config --global user.name  "probe"
+            echo; echo "===== repo init ($MANIFEST_BRANCH) ====="
+            mkdir -p ~/aosp && cd ~/aosp
+            time repo init -u "$MIRROR/platform/manifest" -b "$MANIFEST_BRANCH" \
+                 --depth=1 --no-clone-bundle 2>&1 | tail -20
+            echo; echo "===== 清单规模 ====="
+            echo "project 总数: $(repo list 2>/dev/null | wc -l)"
+            echo "清单里的 group 分布:"
+            grep -ohE 'groups="[^"]*"' .repo/manifests/default.xml | sort | uniq -c | sort -rn | head -20
+            echo "default 组 project 数: $(repo list -g default 2>/dev/null | wc -l)"
+            echo "当前 .repo 大小: $(du -sh .repo 2>/dev/null | cut -f1)"
+          } | tee -a "$REPORT" || true
+
+      - name: repo sync 带宽采样
+        if: inputs.sync_sample
+        run: |
+          export PATH=~/bin:$PATH; cd ~/aosp
+          before=$(du -sb .repo | cut -f1)
+          {
+            echo; echo "===== 采样：同步 4 个中大型项目（限时 20 分钟）====="
+            timeout 1200 repo sync -j4 --no-clone-bundle \
+              platform/frameworks/base platform/frameworks/av platform/art platform/libcore 2>&1 | tail -15
+            after=$(du -sb .repo | cut -f1)
+            mb=$(( (after - before) / 1048576 ))
+            echo "本次 .repo 增量: ${mb} MiB"
+            echo "工作树大小: $(du -sh --exclude=.repo ~/aosp 2>/dev/null | cut -f1)"
+            echo "总大小: $(du -sh ~/aosp 2>/dev/null | cut -f1)"
+            echo "磁盘剩余: $(df -h / | tail -1)"
+            echo; echo "===== 已同步项目的源码树明细 ====="
+            du -sh ~/aosp/platform/frameworks/base ~/aosp/platform/frameworks/av \
+                   ~/aosp/platform/art ~/aosp/platform/libcore 2>/dev/null
+          } | tee -a "$REPORT" || true
+
+      - name: 汇总结论
+        if: always()
+        run: |
+          {
+            echo; echo "===== 最终磁盘状态 ====="
+            df -hT / /mnt 2>/dev/null
+            echo; echo "===== 判读提示（人工看上面的数字下结论）====="
+            echo "1) 单 job 上限 360 分钟；此处看 CPU 核数与实测 MiB/s 推算全量 sync 与冷编译是否放得下。"
+            echo "2) AOSP 12 工作树约 100GB 量级、out/ 约 150-300GB 量级；对比 root 可用字节。"
+          } | tee -a "$REPORT"
+
+      - name: 上传报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gha-runner-probe
+          path: runner-probe-report.txt
+          if-no-files-found: warn
+          retention-days: 30
