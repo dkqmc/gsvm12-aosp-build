@@ -1,0 +1,107 @@
+name: extract-aosp12-tree
+
+# 在 Linux runner 上把官方 AOSP 12 arm64 镜像的文件树抽出来（本地 Windows 读不了 ext4）。
+#   sdkmanager 取包 -> scripts/find_ext4.py 定位 super 内各文件系统起点
+#   -> mount -o ro,loop,offset=N 逐个挂载 -> tar --xattrs 打包 -> artifact 回传
+# 全程只读镜像。取包 + 抽树放在同一个 job 里，避免 4.2GB 镜像下载两遍。
+
+"on":
+  workflow_dispatch:
+    inputs:
+      package:
+        description: "SDK system-images 包名"
+        default: "system-images;android-31;default;arm64-v8a"
+      min_size_mib:
+        description: "忽略小于该体积的文件系统（滤掉 apex 内嵌镜像）"
+        default: "16"
+
+permissions:
+  contents: read
+
+jobs:
+  extract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    env:
+      SDK: ${{ github.workspace }}/sdk
+      PKG: ${{ inputs.package }}
+      MIN: ${{ inputs.min_size_mib }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 装依赖
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq openjdk-17-jre-headless e2fsprogs attr
+          java -version 2>&1 | head -1
+
+      - name: 取 cmdline-tools（URL 从 Google 官方仓库清单解析，不写死）
+        run: |
+          for x in repository2-3.xml repository2-2.xml repository2-1.xml; do
+            curl -fsSL "https://dl.google.com/android/repository/$x" -o /tmp/repo.xml && break
+          done
+          URL=$(grep -oE 'https://dl.google.com/android/repository/commandlinetools-linux-[0-9]+_latest\.zip' /tmp/repo.xml | sort -uV | tail -1)
+          test -n "$URL" || { echo "解析不到 cmdline-tools URL"; exit 1; }
+          echo "cmdline-tools: $URL"
+          mkdir -p "$SDK/cmdline-tools"
+          curl -fL --retry 3 "$URL" -o /tmp/clt.zip
+          unzip -q /tmp/clt.zip -d "$SDK/cmdline-tools"
+          mv "$SDK/cmdline-tools/cmdline-tools" "$SDK/cmdline-tools/latest"
+
+      - name: 安装 Android 12 arm64 系统镜像
+        run: |
+          SDKM="$SDK/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKM" --sdk_root="$SDK" --licenses >/dev/null 2>&1 || true
+          "$SDKM" --sdk_root="$SDK" --install "$PKG" | tail -3
+          echo "IMGDIR=$SDK/system-images/android-31/default/arm64-v8a" >> "$GITHUB_ENV"
+          ls -la "$SDK/system-images/android-31/default/arm64-v8a"
+          df -h / | tail -1
+
+      - name: 定位 super 内的文件系统
+        run: |
+          mkdir -p out
+          python3 scripts/find_ext4.py "$IMGDIR/system.img" --csv --min-size "$MIN" | tr -d '\r' > out/fsstarts.tsv
+          echo "候选文件系统（start / type / label / bytes）:"
+          cat out/fsstarts.tsv
+
+      - name: 逐个挂载并打包成带 xattr 的 tar
+        run: |
+          IMG="$IMGDIR/system.img"
+          : > out/inventory.txt
+          n=0
+          while IFS=$'\t' read -r tag start type label bytes; do
+            [ "$tag" = "FSSTART" ] || continue
+            mp="/mnt/fs$n"
+            sudo mkdir -p "$mp"
+            if sudo mount -o ro,loop,offset="$start" "$IMG" "$mp"; then
+              name="$label"
+              if [ "$name" = "-" ] || [ -z "$name" ]; then
+                if [ -d "$mp/framework" ] || [ -d "$mp/apex" ]; then name=system
+                elif [ -d "$mp/lib/modules" ]; then name=vendor
+                else name="unnamed-$start"; fi
+              fi
+              cnt=$(sudo find "$mp" | wc -l)
+              sa=$(sudo getfattr -n security.selinux --absolute-names "$mp/bin/sh" 2>/dev/null | grep -c security.selinux || true)
+              sudo tar --xattrs --xattrs-include='*' --acls --numeric-owner --format=pax \
+                   -C "$mp" -cf "out/$name.tar" .
+              echo "$name  offset=$start  files=$cnt  tar=$(du -m out/$name.tar | cut -f1)MiB  selinux样例=$sa"
+              echo "### $name (offset $start, $cnt 个条目)" >> out/inventory.txt
+              sudo ls -1 "$mp" | sed 's/^/    /' >> out/inventory.txt
+              sudo umount "$mp"
+            else
+              echo "挂载失败: label=$label offset=$start"
+            fi
+            sudo rmdir "$mp" 2>/dev/null || true
+            n=$((n+1))
+          done < out/fsstarts.tsv
+          cp "$IMGDIR/build.prop" "$IMGDIR/advancedFeatures.ini" "$IMGDIR/source.properties" out/
+          du -sh out/* ; df -h / | tail -1
+
+      - name: 上传文件树
+        uses: actions/upload-artifact@v4
+        with:
+          name: aosp12-arm64-tree
+          path: out/
+          retention-days: 30
+          if-no-files-found: error
