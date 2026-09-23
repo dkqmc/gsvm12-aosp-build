@@ -38,11 +38,13 @@ jobs:
 
       - name: 取 cmdline-tools（URL 从 Google 官方仓库清单解析，不写死）
         run: |
-          for x in repository2-3.xml repository2-2.xml repository2-1.xml; do
+          for x in repository2-3.xml repository2-4.xml repository2-2.xml repository2-1.xml; do
             curl -fsSL "https://dl.google.com/android/repository/$x" -o /tmp/repo.xml && break
           done
-          URL=$(grep -oE 'https://dl.google.com/android/repository/commandlinetools-linux-[0-9]+_latest\.zip' /tmp/repo.xml | sort -uV | tail -1)
-          test -n "$URL" || { echo "解析不到 cmdline-tools URL"; exit 1; }
+          # 清单里的 <url> 是相对文件名，要自己拼基址
+          F=$(grep -oE 'commandlinetools-linux-[0-9]+_latest\.zip' /tmp/repo.xml | sort -uV | tail -1)
+          test -n "$F" || { echo "清单里找不到 commandlinetools 包名"; grep -oE 'commandlinetools[^<]*' /tmp/repo.xml | head -5; exit 1; }
+          URL="https://dl.google.com/android/repository/$F"
           echo "cmdline-tools: $URL"
           mkdir -p "$SDK/cmdline-tools"
           curl -fL --retry 3 "$URL" -o /tmp/clt.zip
