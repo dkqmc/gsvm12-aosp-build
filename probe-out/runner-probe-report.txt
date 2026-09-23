@@ -1,0 +1,110 @@
+===== 时间 / 主机 =====
+2026-09-23 11:23:30 UTC
+Linux runnervmtr4k5 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
+PRETTY_NAME="Ubuntu 24.04.5 LTS"
+NAME="Ubuntu"
+VERSION_ID="24.04"
+
+===== CPU =====
+4
+Architecture:                            x86_64
+CPU(s):                                  4
+Model name:                              AMD EPYC 7763 64-Core Processor
+
+===== 内存 =====
+               total        used        free      shared  buff/cache   available
+Mem:            15Gi       898Mi        12Gi        38Mi       2.4Gi        14Gi
+Swap:          3.0Gi          0B       3.0Gi
+
+===== cgroup 资源限制 =====
+cpu.max = n/a
+memory.max = n/a
+memory.high = n/a
+cpuset.cpus = n/a
+
+===== 磁盘布局（清理前）=====
+NAME     SIZE TYPE MOUNTPOINTS
+sda      150G disk 
+├─sda1   149G part /
+├─sda14    4M part 
+├─sda15  106M part /boot/efi
+└─sda16  913M part /boot
+Filesystem     Type  Size  Used Avail Use% Mounted on
+/dev/root      ext4  145G   59G   87G  41% /
+/dev/root      ext4  145G   59G   87G  41% /
+/dev/root      ext4  145G   59G   87G  41% /
+/dev/root      ext4  145G   59G   87G  41% /
+
+===== 预装大型目录占用 =====
+5.8G	/usr/share/dotnet
+11G	/usr/local/lib/android
+5.0G	/opt/hostedtoolcache
+980M	/usr/share/miniconda
+1.4G	/usr/local/share/powershell
+
+===== 清理动作 =====
+清理后：
+Filesystem     Type  Size  Used Avail Use% Mounted on
+/dev/root      ext4  145G   32G  114G  22% /
+/dev/root      ext4  145G   32G  114G  22% /
+可用字节(root)=121582460928
+
+===== git 通道：ls-remote 耗时 =====
+android-12.0.0 tag 最大值: android-12.0.0_r34
+android-12.0.0 tag 数量: 30
+
+===== aosp-monthly 初始化包 GET 是否被拦 =====
+HEAD code=200 len=0
+RANGE GET code=403 bytes=15347 Bps=14046
+
+===== 单项目浅克隆带宽采样（platform/build）=====
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 10:08.06
+	Maximum resident set size (kbytes): 17216
+clone 后大小: 21M
+
+===== repo 工具 =====
+repo 下载自 storage.googleapis.com: OK
+<repo not installed>
+repo launcher version 2.65
+       (from /home/runner/bin/repo)
+git 2.55.0
+Python 3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]
+
+===== repo init (android-12.0.0_r34) =====
+
+repo has been initialized in /home/runner/aosp
+
+===== 清单规模 =====
+project 总数: 0
+清单里的 group 分布:
+    699 groups="pdk"
+     88 groups="pdk-fs"
+     65 groups="pdk-cw-fs,pdk-fs"
+     22 groups="vts,pdk"
+      9 groups="vts,projectarch,pdk"
+      8 groups="pdk,tradefed"
+      6 groups="qcom_sm8150"
+      6 groups="notdefault,tools"
+      6 groups="generic_fs,qcom_sdm845"
+      5 groups="pdk,qcom_msm8x26"
+      4 groups="tools"
+      4 groups="qcom,pdk-qcom"
+      4 groups="pdk,tools"
+      4 groups="device,pdk"
+      3 groups="qcom_sm7250"
+      3 groups="device,sunfish"
+      3 groups="device,crosshatch,generic_fs"
+      3 groups="device,coral,generic_fs"
+      3 groups="device,bonito"
+      3 groups="device,barbet"
+default 组 project 数: 0
+当前 .repo 大小: 20M
+
+===== 最终磁盘状态 =====
+Filesystem     Type  Size  Used Avail Use% Mounted on
+/dev/root      ext4  145G   34G  111G  24% /
+/dev/root      ext4  145G   34G  111G  24% /
+
+===== 判读提示（人工看上面的数字下结论）=====
+1) 单 job 上限 360 分钟；此处看 CPU 核数与实测 MiB/s 推算全量 sync 与冷编译是否放得下。
+2) AOSP 12 工作树约 100GB 量级、out/ 约 150-300GB 量级；对比 root 可用字节。
