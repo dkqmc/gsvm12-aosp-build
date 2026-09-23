@@ -10,3 +10,4 @@ dl-round*.log
 curl-dl.log
 install.log
 probe-out/
+REPORT.md
