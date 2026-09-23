@@ -54,7 +54,31 @@ ro.build.type = userdebug        ro.build.tags = test-keys
 ro.product.cpu.abi = arm64-v8a   构建日期 2022-06-22 (8752307)
 ```
 
-**注意**：`system.img` 里的文件系统不是裸 ext4，而是包在 **GPT + 动态分区 super** 里；取文件树需要 `lpunpack`/`debugfs` 这类真工具（在 Linux 上几分钟的事）。自搓 LP 解析试过，头部结构与常见 liblp 布局不一致，已放弃。
+**注意**：`system.img` 里的文件系统不是裸 ext4，而是包在 **GPT + 动态分区 super** 里。
+
+## 文件树抽取（已完成）
+
+Windows 读不了 ext4，所以抽取放在 Linux runner 上做（`.github/workflows/extract-aosp12-tree.yml`）：
+`sdkmanager` 取包 → `scripts/find_ext4.py` 定位 super 内各文件系统起点 → `mount -o ro,loop,offset=N`
+→ `tar --xattrs --xattrs-include='*' --acls --numeric-owner --format=pax` → artifact。
+
+实测定位结果（`system.img` 内字节偏移）：
+
+| 分区 | 偏移 | 条目 | tar |
+|---|---:|---:|---:|
+| `system` | 3,145,728 | 2513 | 695 MiB |
+| `product` | 915,406,848 | 438 | 258 MiB |
+| `system_ext` | 783,286,272 | 107 | 128 MiB |
+| `vendor` | 1,191,182,336 | 667 | 92 MiB |
+
+**元数据核对（`scripts/verify_tar.py`）：四个 tar 里 100% 的条目都带 `security.selinux` xattr**，uid/gid/mode 与符号链接（合计 439 个）都保住。两个注意点：PAX 里 xattr 值尾部带 `\x00`；`system_ext`/`vendor` 里含 mke2fs 建的 `lost+found`。
+
+## 大文件回传
+
+Actions artifact（562,214,179 B）从 GitHub 拉很慢：单连接实测 60–75 KB/s，且 SAS 直链 10 分钟过期。
+`scripts/fastget2.sh` + `scripts/chunk_get.sh` 是为此写的分片并发下载器（免装 aria2，24 路 ≈ 1.4 MB/s）：
+每片只补缺失尾巴、**追加前校验长度**、SAS 过期自动重签。踩过的坑：盲目追加会把 curl 拿到的错误响应体写进文件（字节数对得上但 CRC 全错），所以必须在追加前比对长度。
+
 
 ## 目录内容
 
